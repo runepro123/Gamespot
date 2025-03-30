@@ -11,6 +11,27 @@ export default function ActivitiesSection() {
     queryKey: ["/api/activities"],
   });
 
+  // Helper functions
+  const getStatusClass = (action: string) => {
+    if (action.includes("Banned") || action.includes("Deleted") || action.includes("Rejected")) {
+      return "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300";
+    } else if (action.includes("Pending")) {
+      return "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300";
+    } else {
+      return "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300";
+    }
+  };
+
+  const getStatus = (action: string) => {
+    if (action.includes("Banned") || action.includes("Deleted") || action.includes("Rejected")) {
+      return "Rejected";
+    } else if (action.includes("Pending")) {
+      return "Pending Review";
+    } else {
+      return "Completed";
+    }
+  };
+
   if (error) {
     return (
       <Card className="mb-8">
@@ -32,7 +53,55 @@ export default function ActivitiesSection() {
         </Button>
       </div>
       <div className="p-4">
-        <div className="overflow-x-auto">
+        {/* Mobile view for activities (cards) */}
+        <div className="md:hidden space-y-4">
+          {isLoading ? (
+            Array.from({ length: 3 }).map((_, i) => (
+              <Card key={i} className="p-3">
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-32" />
+                  <div className="flex justify-between">
+                    <Skeleton className="h-4 w-20" />
+                    <Skeleton className="h-5 w-16 rounded-full" />
+                  </div>
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-24" />
+                </div>
+              </Card>
+            ))
+          ) : (
+            activities?.map((activity) => (
+              <Card key={activity.id} className="p-3">
+                <div className="space-y-2">
+                  <h3 className="text-gray-900 dark:text-white font-medium">{activity.action}</h3>
+                  <div className="flex justify-between">
+                    <p className="text-gray-600 dark:text-gray-300 text-sm">
+                      {activity.user ? activity.user.username : 'System'}
+                    </p>
+                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                      activity.action.includes("Banned") || activity.action.includes("Deleted") || activity.action.includes("Rejected")
+                        ? "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300"
+                        : activity.action.includes("Pending")
+                          ? "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300"
+                          : "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300"
+                    }`}>
+                      {activity.action.includes("Banned") || activity.action.includes("Deleted") || activity.action.includes("Rejected")
+                        ? "Rejected"
+                        : activity.action.includes("Pending")
+                          ? "Pending Review"
+                          : "Completed"}
+                    </span>
+                  </div>
+                  <p className="text-gray-600 dark:text-gray-300 text-sm">{activity.details}</p>
+                  <p className="text-gray-500 dark:text-gray-400 text-xs">{formatDate(activity.createdAt)}</p>
+                </div>
+              </Card>
+            ))
+          )}
+        </div>
+
+        {/* Desktop view for activities (table) */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full">
             <thead>
               <tr className="text-left text-gray-500 dark:text-gray-400 text-sm">

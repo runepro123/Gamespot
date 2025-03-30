@@ -55,14 +55,14 @@ export default function ChartsSection() {
   });
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-8">
       {/* User Activity Chart */}
       <Card>
-        <CardContent className="p-6">
-          <div className="flex justify-between items-center mb-4">
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mb-4">
             <h3 className="font-bold text-gray-900 dark:text-white">User Activity</h3>
             <Select value={timeRange} onValueChange={setTimeRange}>
-              <SelectTrigger className="w-[180px] bg-gray-100 dark:bg-gray-800 border-0">
+              <SelectTrigger className="w-full sm:w-[180px] bg-gray-100 dark:bg-gray-800 border-0">
                 <SelectValue placeholder="Select time range" />
               </SelectTrigger>
               <SelectContent>
@@ -80,7 +80,7 @@ export default function ChartsSection() {
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart
                   data={dummyUserActivity}
-                  margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                  margin={{ top: 10, right: 10, left: -10, bottom: 0 }}
                 >
                   <defs>
                     <linearGradient id="colorActiveUsers" x1="0" y1="0" x2="0" y2="1">
@@ -122,11 +122,11 @@ export default function ChartsSection() {
 
       {/* Game Categories Chart */}
       <Card>
-        <CardContent className="p-6">
-          <div className="flex justify-between items-center mb-4">
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mb-4">
             <h3 className="font-bold text-gray-900 dark:text-white">Top Game Categories</h3>
             <Select value={categoryRange} onValueChange={setCategoryRange}>
-              <SelectTrigger className="w-[180px] bg-gray-100 dark:bg-gray-800 border-0">
+              <SelectTrigger className="w-full sm:w-[180px] bg-gray-100 dark:bg-gray-800 border-0">
                 <SelectValue placeholder="Select time range" />
               </SelectTrigger>
               <SelectContent>
@@ -147,19 +147,19 @@ export default function ChartsSection() {
                     data={dummyGameCategories}
                     cx="50%"
                     cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
+                    innerRadius={40}
+                    outerRadius={70}
                     paddingAngle={2}
                     dataKey="value"
                     nameKey="name"
-                    label
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    labelLine={false}
                   >
                     {dummyGameCategories.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
                   <Tooltip formatter={(value, name) => [`${value}%`, name]} />
-                  <Legend layout="vertical" verticalAlign="middle" align="right" />
                 </PieChart>
               </ResponsiveContainer>
             </div>

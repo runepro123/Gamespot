@@ -11,16 +11,35 @@ import GamesSection from "@/components/admin/games-section";
 import { Plus } from "lucide-react";
 
 export default function AdminPage() {
-  const [route] = useRoute('/admin/:section?');
-  const section = route?.section || 'dashboard';
+  const [route, params] = useRoute('/admin/:section?');
+  const section = params?.section || 'dashboard';
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
       <Header />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 md:py-8 flex-grow w-full">
+        {/* Mobile menu button */}
+        <div className="md:hidden flex justify-between items-center mb-4">
+          <h1 className="text-xl font-bold text-gray-900 dark:text-white">Admin Panel</h1>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="inline-flex items-center"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={mobileMenuOpen ? "M6 18L18 6M6 6l12 12" : "M4 6h16M4 12h16M4 18h16"} />
+            </svg>
+            <span className="ml-2">{mobileMenuOpen ? 'Close Menu' : 'Menu'}</span>
+          </Button>
+        </div>
+        
         <div className="flex flex-col md:flex-row gap-6">
-          {/* Sidebar */}
-          <Sidebar className="flex-shrink-0" />
+          {/* Sidebar - conditionally shown on mobile */}
+          <div className={`${mobileMenuOpen ? 'block' : 'hidden'} md:block`}>
+            <Sidebar className="flex-shrink-0 w-full md:w-64 sticky top-4" />
+          </div>
           
           {/* Main Content */}
           <main className="flex-1">
@@ -42,13 +61,13 @@ function DashboardView() {
   return (
     <>
       {/* Dashboard Header */}
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col sm:flex-row justify-between gap-4 items-start sm:items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
-        <div className="flex space-x-3">
-          <Button variant="outline" className="flex items-center">
+        <div className="flex w-full sm:w-auto gap-2 sm:space-x-3">
+          <Button variant="outline" className="flex items-center text-xs sm:text-sm flex-1 sm:flex-initial justify-center">
             <svg 
               xmlns="http://www.w3.org/2000/svg" 
-              className="h-4 w-4 mr-2" 
+              className="h-4 w-4 mr-1 sm:mr-2" 
               fill="none" 
               viewBox="0 0 24 24" 
               stroke="currentColor"
@@ -62,8 +81,8 @@ function DashboardView() {
             </svg>
             Export
           </Button>
-          <Button className="flex items-center">
-            <Plus className="h-4 w-4 mr-2" />
+          <Button className="flex items-center text-xs sm:text-sm flex-1 sm:flex-initial justify-center">
+            <Plus className="h-4 w-4 mr-1 sm:mr-2" />
             Add Game
           </Button>
         </div>
@@ -76,7 +95,9 @@ function DashboardView() {
       <ChartsSection />
 
       {/* Recent Activities Table */}
-      <ActivitiesSection />
+      <div className="overflow-x-auto">
+        <ActivitiesSection />
+      </div>
 
       {/* Pending Reviews & Recently Added Games */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

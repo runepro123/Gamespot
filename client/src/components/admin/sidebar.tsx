@@ -93,18 +93,17 @@ export default function Sidebar({ className }: SidebarProps) {
         <ul className="space-y-1">
           {navItems.map((item) => (
             <li key={item.href}>
-              <Link href={item.href}>
-                <a 
-                  className={cn(
-                    "flex items-center px-4 py-2.5 rounded-lg font-medium transition-colors",
-                    isActive(item.href) 
-                      ? "text-primary bg-purple-50 dark:bg-purple-900/20" 
-                      : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
-                  )}
-                >
-                  {item.icon}
-                  {item.label}
-                </a>
+              <Link 
+                href={item.href}
+                className={cn(
+                  "flex items-center px-4 py-2.5 rounded-lg font-medium transition-colors",
+                  isActive(item.href) 
+                    ? "text-primary bg-purple-50 dark:bg-purple-900/20" 
+                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+                )}
+              >
+                {item.icon}
+                {item.label}
               </Link>
             </li>
           ))}
