@@ -1,6 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import { storage, DatabaseStorage } from "./storage";
 import { setupAuth } from "./auth";
 import { 
   insertGameSchema, 
@@ -28,6 +28,11 @@ function isAdmin(req: Request, res: Response, next: Function) {
 
 // Register API routes
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Initialize the database with seed data if needed
+  if (storage instanceof DatabaseStorage) {
+    await storage.seedInitialData();
+  }
+  
   // Setup authentication
   setupAuth(app);
 

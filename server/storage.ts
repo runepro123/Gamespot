@@ -4,11 +4,27 @@ import {
   reviews, type Review, type InsertReview,
   favorites, type Favorite, type InsertFavorite,
   activityLogs, type ActivityLog, type InsertActivityLog,
-  analytics, type Analytics
+  analytics, type Analytics,
+  genreEnum
 } from "@shared/schema";
-import createMemoryStore from "memorystore";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { sql, desc, eq, and } from "drizzle-orm";
+import pg from "pg";
+const { Pool } = pg;
+import connectPg from "connect-pg-simple";
 import session from "express-session";
+import createMemoryStore from "memorystore";
 
+// PostgreSQL connection
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
+
+// Create DrizzleORM instance
+const db = drizzle(pool);
+
+// Session stores
+const PostgresSessionStore = connectPg(session);
 const MemoryStore = createMemoryStore(session);
 
 // Interface for all storage operations
@@ -58,7 +74,7 @@ export interface IStorage {
   updateDailyAnalytics(date: Date, data: Partial<Analytics>): Promise<Analytics>;
 
   // Session store for auth
-  sessionStore: session.SessionStore;
+  sessionStore: any; // Using any for session store to avoid typing issues
 }
 
 // In-memory storage implementation
@@ -77,7 +93,7 @@ export class MemStorage implements IStorage {
   private activityLogIdCounter: number;
   private analyticsIdCounter: number;
   
-  sessionStore: session.SessionStore;
+  sessionStore: any; // We need to use any to avoid typing issues
 
   constructor() {
     this.users = new Map();
@@ -464,4 +480,374 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// PostgreSQL Database Storage implementation
+export class DatabaseStorage implements IStorage {
+  sessionStore: any; // Using any to avoid typing issues
+
+  constructor() {
+    this.sessionStore = new PostgresSessionStore({
+      pool,
+      createTableIfMissing: true
+    });
+  }
+
+  // User operations
+  async getUser(id: number): Promise<User | undefined> {
+    const result = await db.select().from(users).where(sql`${users.id} = ${id}`).limit(1);
+    return result[0];
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const result = await db.select().from(users).where(sql`${users.username} = ${username}`).limit(1);
+    return result[0];
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const result = await db.select().from(users).where(sql`${users.email} = ${email}`).limit(1);
+    return result[0];
+  }
+
+  async createUser(user: InsertUser): Promise<User> {
+    const now = new Date();
+    const result = await db.insert(users).values({
+      ...user,
+      createdAt: now
+    }).returning();
+    return result[0];
+  }
+
+  async updateUser(id: number, userData: Partial<User>): Promise<User | undefined> {
+    const result = await db.update(users)
+      .set(userData)
+      .where(sql`${users.id} = ${id}`)
+      .returning();
+    return result[0];
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return await db.select().from(users);
+  }
+
+  async deleteUser(id: number): Promise<boolean> {
+    const result = await db.delete(users).where(sql`${users.id} = ${id}`);
+    return result.rowCount > 0;
+  }
+
+  // Game operations
+  async getGame(id: number): Promise<Game | undefined> {
+    const result = await db.select().from(games).where(sql`${games.id} = ${id}`).limit(1);
+    return result[0];
+  }
+
+  async getGameByTitle(title: string): Promise<Game | undefined> {
+    const result = await db.select().from(games).where(sql`${games.title} = ${title}`).limit(1);
+    return result[0];
+  }
+
+  async createGame(game: InsertGame): Promise<Game> {
+    const now = new Date();
+    const result = await db.insert(games).values({
+      ...game,
+      rating: 0,
+      createdAt: now,
+      updatedAt: now
+    }).returning();
+    return result[0];
+  }
+
+  async updateGame(id: number, gameData: Partial<Game>): Promise<Game | undefined> {
+    const now = new Date();
+    const result = await db.update(games)
+      .set({
+        ...gameData,
+        updatedAt: now
+      })
+      .where(sql`${games.id} = ${id}`)
+      .returning();
+    return result[0];
+  }
+
+  async getAllGames(): Promise<Game[]> {
+    return await db.select().from(games);
+  }
+
+  async getFeaturedGames(): Promise<Game[]> {
+    return await db.select().from(games)
+      .where(sql`${games.isFeatured} = true`)
+      .orderBy(desc(games.rating));
+  }
+
+  async getTrendingGames(): Promise<Game[]> {
+    return await db.select().from(games)
+      .where(sql`${games.isTrending} = true`)
+      .orderBy(desc(games.rating));
+  }
+
+  async getGamesByGenre(genre: string): Promise<Game[]> {
+    return await db.select().from(games)
+      .where(sql`${games.genre} = ${genre}`)
+      .orderBy(desc(games.rating));
+  }
+
+  async deleteGame(id: number): Promise<boolean> {
+    const result = await db.delete(games).where(sql`${games.id} = ${id}`);
+    return result.rowCount > 0;
+  }
+
+  // Review operations
+  async getReview(id: number): Promise<Review | undefined> {
+    const result = await db.select().from(reviews).where(sql`${reviews.id} = ${id}`).limit(1);
+    return result[0];
+  }
+
+  async createReview(review: InsertReview): Promise<Review> {
+    const now = new Date();
+    const result = await db.insert(reviews).values({
+      ...review,
+      createdAt: now
+    }).returning();
+    
+    // Update game rating
+    await this.updateGameRating(review.gameId);
+    
+    return result[0];
+  }
+
+  async updateReview(id: number, reviewData: Partial<Review>): Promise<Review | undefined> {
+    const result = await db.update(reviews)
+      .set(reviewData)
+      .where(sql`${reviews.id} = ${id}`)
+      .returning();
+    
+    if (result[0] && (reviewData.rating || reviewData.isApproved !== undefined)) {
+      await this.updateGameRating(result[0].gameId);
+    }
+    
+    return result[0];
+  }
+
+  async getReviewsByGame(gameId: number): Promise<Review[]> {
+    return await db.select().from(reviews)
+      .where(sql`${reviews.gameId} = ${gameId} AND ${reviews.isApproved} = true`)
+      .orderBy(desc(reviews.createdAt));
+  }
+
+  async getReviewsByUser(userId: number): Promise<Review[]> {
+    return await db.select().from(reviews)
+      .where(sql`${reviews.userId} = ${userId}`)
+      .orderBy(desc(reviews.createdAt));
+  }
+
+  async getPendingReviews(): Promise<Review[]> {
+    return await db.select().from(reviews)
+      .where(sql`${reviews.isApproved} = false`)
+      .orderBy(desc(reviews.createdAt));
+  }
+
+  async deleteReview(id: number): Promise<boolean> {
+    const review = await this.getReview(id);
+    if (!review) return false;
+    
+    const result = await db.delete(reviews).where(sql`${reviews.id} = ${id}`);
+    if (result.rowCount > 0) {
+      await this.updateGameRating(review.gameId);
+      return true;
+    }
+    return false;
+  }
+
+  // Helper to update a game's rating based on its reviews
+  private async updateGameRating(gameId: number): Promise<void> {
+    const game = await this.getGame(gameId);
+    if (!game) return;
+    
+    const gameReviews = await db.select()
+      .from(reviews)
+      .where(sql`${reviews.gameId} = ${gameId} AND ${reviews.isApproved} = true`);
+    
+    if (gameReviews.length === 0) {
+      await this.updateGame(gameId, { rating: 0 });
+      return;
+    }
+    
+    const totalRating = gameReviews.reduce((sum, review) => sum + review.rating, 0);
+    const avgRating = +(totalRating / gameReviews.length).toFixed(1);
+    
+    await this.updateGame(gameId, { rating: avgRating });
+  }
+
+  // Favorite operations
+  async getFavorite(id: number): Promise<Favorite | undefined> {
+    const result = await db.select().from(favorites).where(sql`${favorites.id} = ${id}`).limit(1);
+    return result[0];
+  }
+
+  async createFavorite(favorite: InsertFavorite): Promise<Favorite> {
+    const now = new Date();
+    const result = await db.insert(favorites).values({
+      ...favorite,
+      createdAt: now
+    }).returning();
+    return result[0];
+  }
+
+  async getFavoritesByUser(userId: number): Promise<Favorite[]> {
+    return await db.select().from(favorites)
+      .where(sql`${favorites.userId} = ${userId}`)
+      .orderBy(desc(favorites.createdAt));
+  }
+
+  async deleteFavorite(id: number): Promise<boolean> {
+    const result = await db.delete(favorites).where(sql`${favorites.id} = ${id}`);
+    return result.rowCount > 0;
+  }
+
+  async isFavorite(userId: number, gameId: number): Promise<boolean> {
+    const result = await db.select().from(favorites)
+      .where(sql`${favorites.userId} = ${userId} AND ${favorites.gameId} = ${gameId}`)
+      .limit(1);
+    return result.length > 0;
+  }
+
+  // Activity log operations
+  async createActivityLog(log: InsertActivityLog): Promise<ActivityLog> {
+    const now = new Date();
+    const result = await db.insert(activityLogs).values({
+      ...log,
+      createdAt: now
+    }).returning();
+    return result[0];
+  }
+
+  async getRecentActivityLogs(limit: number): Promise<ActivityLog[]> {
+    return await db.select().from(activityLogs)
+      .orderBy(desc(activityLogs.createdAt))
+      .limit(limit);
+  }
+
+  // Analytics operations
+  async getAnalytics(days: number): Promise<Analytics[]> {
+    const date = new Date();
+    date.setDate(date.getDate() - days);
+    
+    return await db.select().from(analytics)
+      .where(sql`${analytics.date} >= ${date}`)
+      .orderBy(desc(analytics.date));
+  }
+
+  async updateDailyAnalytics(date: Date, data: Partial<Analytics>): Promise<Analytics> {
+    // Format date to remove time component for comparison
+    const dateStr = date.toISOString().split('T')[0];
+    
+    // Check if we already have analytics for this date
+    const existingAnalytics = await db.select().from(analytics)
+      .where(sql`DATE(${analytics.date}) = DATE(${date})`)
+      .limit(1);
+    
+    if (existingAnalytics.length > 0) {
+      const existing = existingAnalytics[0];
+      const updated = await db.update(analytics)
+        .set({
+          totalVisits: (existing.totalVisits || 0) + (data.totalVisits || 0),
+          newUsers: (existing.newUsers || 0) + (data.newUsers || 0),
+          activeUsers: (existing.activeUsers || 0) + (data.activeUsers || 0)
+        })
+        .where(sql`${analytics.id} = ${existing.id}`)
+        .returning();
+      return updated[0];
+    } else {
+      const now = new Date();
+      const result = await db.insert(analytics).values({
+        date,
+        totalVisits: data.totalVisits || 0,
+        newUsers: data.newUsers || 0,
+        activeUsers: data.activeUsers || 0,
+        createdAt: now
+      }).returning();
+      return result[0];
+    }
+  }
+
+  // Seed initial games and admin user if needed
+  async seedInitialData(): Promise<void> {
+    // Check if we have any users
+    const users = await this.getAllUsers();
+    if (users.length === 0) {
+      // Create admin user
+      await this.createUser({
+        username: "admin",
+        password: "admin123", // This will be hashed in the auth service
+        email: "admin@topbestgames.com",
+        fullName: "Administrator",
+        isAdmin: true,
+        avatar: "",
+      });
+    }
+    
+    // Check if we have any games
+    const games = await this.getAllGames();
+    if (games.length === 0) {
+      // Seed initial games
+      const genres = ["action", "adventure", "rpg", "strategy", "simulation", "sports"];
+      const titles = [
+        "Cyberpunk 2077",
+        "Elden Ring",
+        "God of War: Ragnarök",
+        "Starfield",
+        "The Legend of Zelda: TOTK",
+        "Red Dead Redemption 2",
+        "The Witcher 3: Wild Hunt"
+      ];
+      const developers = [
+        "CD Projekt Red",
+        "FromSoftware",
+        "Santa Monica Studio",
+        "Bethesda Game Studios",
+        "Nintendo",
+        "Rockstar Games",
+        "CD Projekt Red"
+      ];
+      const descriptions = [
+        "Open-world RPG set in a dystopian future where body modification has become commonplace.",
+        "Action RPG set in a vast open world with challenging combat and deep lore.",
+        "Action-adventure game following Kratos and Atreus through the realms of Norse mythology.",
+        "Space exploration RPG with hundreds of planets to discover and explore.",
+        "Open-world adventure game with innovative gameplay mechanics and a vast world to explore.",
+        "Epic wild west adventure with a compelling story and stunning open world.",
+        "Massive open-world RPG with deep storytelling and challenging combat."
+      ];
+      const images = [
+        "https://images.unsplash.com/photo-1552820728-8b83bb6b773f?auto=format&fit=crop&w=288&h=162&q=80",
+        "https://images.unsplash.com/photo-1592155931584-901ac15763e3?auto=format&fit=crop&w=288&h=162&q=80",
+        "https://images.unsplash.com/photo-1612287230202-1ff1d85d1bdf?auto=format&fit=crop&w=288&h=162&q=80",
+        "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=288&h=162&q=80",
+        "https://images.unsplash.com/photo-1616872153334-9054deb40bd1?auto=format&fit=crop&w=384&h=216&q=80",
+        "https://images.unsplash.com/photo-1472457897821-70d3819a0e24?auto=format&fit=crop&w=384&h=216&q=80",
+        "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=384&h=216&q=80"
+      ];
+      const ratings = [9.2, 9.8, 9.5, 8.7, 9.9, 9.7, 9.6];
+      
+      for (let i = 0; i < titles.length; i++) {
+        const isTrending = i < 4; // First 4 are trending
+        const isFeatured = i >= 4; // Last 3 are featured (top rated)
+        
+        const game = await this.createGame({
+          title: titles[i],
+          description: descriptions[i],
+          genre: genres[i % genres.length],
+          developer: developers[i],
+          imageUrl: images[i],
+          isTrending,
+          isFeatured,
+          releaseDate: new Date()
+        });
+        
+        // Update rating directly to match the design
+        await this.updateGame(game.id, { rating: ratings[i] });
+      }
+    }
+  }
+}
+
+// Use PostgreSQL storage for production
+export const storage = new DatabaseStorage();
