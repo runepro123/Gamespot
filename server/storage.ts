@@ -768,20 +768,77 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  // Reset and re-seed the database if needed
+  private async resetDatabase(): Promise<void> {
+    try {
+      // Drop and recreate tables in proper order
+      await db.delete(activityLogs);
+      await db.delete(reviews);
+      await db.delete(favorites);
+      await db.delete(games);
+      await db.delete(users);
+      await db.delete(analytics);
+      
+      console.log("Database reset successfully");
+    } catch (error) {
+      console.error("Error resetting database:", error);
+    }
+  }
+  
   // Seed initial games and admin user if needed
   async seedInitialData(): Promise<void> {
+    // Check for possible password encryption issues with existing users
+    const existingUsers = await this.getAllUsers();
+    const passwordsNeedFixing = existingUsers.some(user => 
+      !user.password.includes('.') || user.username === 'admin'
+    );
+    
+    // Reset database if there are password issues
+    if (passwordsNeedFixing && existingUsers.length > 0) {
+      console.log("Detected password format issues - resetting database");
+      await this.resetDatabase();
+    }
+    
     // Check if we have any users
     const users = await this.getAllUsers();
     if (users.length === 0) {
-      // Create admin user
-      await this.createUser({
-        username: "admin",
-        password: "admin123", // This will be hashed in the auth service
-        email: "admin@topbestgames.com",
-        fullName: "Administrator",
-        isAdmin: true,
-        avatar: "",
-      });
+      try {
+        // Import hashPassword function from auth 
+        // Using dynamic import to avoid circular dependency
+        const { hashPassword } = await import('./auth');
+        
+        // Create admin user with hashed password
+        await this.createUser({
+          username: "admin",
+          password: await hashPassword("admin123"),
+          email: "admin@topbestgames.com",
+          fullName: "Administrator",
+          isAdmin: true,
+          avatar: "",
+        });
+      } catch (error) {
+        // Fallback in case of circular dependency
+        // Manual implementation of password hashing for initial admin
+        const crypto = await import('crypto');
+        const salt = crypto.randomBytes(16).toString("hex");
+        const buf = await new Promise((resolve, reject) => {
+          crypto.scrypt("admin123", salt, 64, (err, key) => {
+            if (err) reject(err);
+            else resolve(key);
+          });
+        });
+        
+        const hashedPassword = `${(buf as Buffer).toString("hex")}.${salt}`;
+        
+        await this.createUser({
+          username: "admin",
+          password: hashedPassword,
+          email: "admin@topbestgames.com",
+          fullName: "Administrator",
+          isAdmin: true,
+          avatar: "",
+        });
+      }
     }
     
     // Check if we have any games
