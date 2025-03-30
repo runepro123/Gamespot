@@ -487,7 +487,13 @@ export class DatabaseStorage implements IStorage {
   constructor() {
     this.sessionStore = new PostgresSessionStore({
       pool,
-      createTableIfMissing: true
+      createTableIfMissing: true,
+      tableName: 'session'
+    });
+    
+    // Clear all sessions on startup to prevent deserialization errors
+    pool.query('TRUNCATE TABLE session').catch(err => {
+      console.log('Note: Session table not found or could not be truncated. This is normal on first run.');
     });
   }
 

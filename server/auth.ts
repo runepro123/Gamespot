@@ -47,9 +47,11 @@ export function setupAuth(app: Express) {
     secret: process.env.SESSION_SECRET || "topbestgames-secret-key",
     resave: false,
     saveUninitialized: false,
+    rolling: true,
     store: storage.sessionStore,
     cookie: {
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      httpOnly: true,
     }
   };
 
@@ -98,9 +100,15 @@ export function setupAuth(app: Express) {
   passport.deserializeUser(async (id: number, done) => {
     try {
       const user = await storage.getUser(id);
+      // If user doesn't exist (possibly due to database reset), handle gracefully
+      if (!user) {
+        return done(null, false);
+      }
       done(null, user);
     } catch (error) {
-      done(error);
+      console.error("Error deserializing user:", error);
+      // Return false instead of error to prevent session errors
+      done(null, false);
     }
   });
 
