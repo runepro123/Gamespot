@@ -35,7 +35,8 @@ export function generateUUID(): string {
   });
 }
 
-export function formatRating(rating: number): string {
+export function formatRating(rating: number | null): string {
+  if (rating === null) return "0.0";
   return rating.toFixed(1);
 }
 

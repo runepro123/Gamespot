@@ -77,19 +77,19 @@ export default function Header() {
               }`}>
                 Games
               </Link>
-              <Link href="/genres" className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                isActive('/genres') 
-                  ? 'text-primary' 
-                  : 'text-gray-700 dark:text-gray-300 hover:text-primary dark:hover:text-primary'
-              }`}>
-                Genres
-              </Link>
               <Link href="/about" className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                 isActive('/about') 
                   ? 'text-primary' 
                   : 'text-gray-700 dark:text-gray-300 hover:text-primary dark:hover:text-primary'
               }`}>
                 About
+              </Link>
+              <Link href="/contact" className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                isActive('/contact') 
+                  ? 'text-primary' 
+                  : 'text-gray-700 dark:text-gray-300 hover:text-primary dark:hover:text-primary'
+              }`}>
+                Contact
               </Link>
             </nav>
           </div>
@@ -187,19 +187,19 @@ export default function Header() {
                   }`}>
                     Games
                   </Link>
-                  <Link href="/genres" className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    isActive('/genres') 
-                      ? 'text-primary bg-primary/10' 
-                      : 'text-gray-700 dark:text-gray-300 hover:text-primary dark:hover:text-primary'
-                  }`}>
-                    Genres
-                  </Link>
                   <Link href="/about" className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                     isActive('/about') 
                       ? 'text-primary bg-primary/10' 
                       : 'text-gray-700 dark:text-gray-300 hover:text-primary dark:hover:text-primary'
                   }`}>
                     About
+                  </Link>
+                  <Link href="/contact" className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    isActive('/contact') 
+                      ? 'text-primary bg-primary/10' 
+                      : 'text-gray-700 dark:text-gray-300 hover:text-primary dark:hover:text-primary'
+                  }`}>
+                    Contact
                   </Link>
                 </nav>
                 
