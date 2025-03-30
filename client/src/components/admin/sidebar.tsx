@@ -26,15 +26,18 @@ export default function Sidebar({ className }: SidebarProps) {
   const { user, logoutMutation } = useAuth();
 
   const isActive = (path: string) => {
-    return location === path;
+    // Check if the path exactly matches or if it's a sub-path
+    if (path === "/admin") {
+      return location === "/admin";
+    }
+    return location.startsWith(path);
   };
 
   const navItems = [
     {
       href: "/admin",
       label: "Dashboard",
-      icon: <LayoutDashboard className="w-5 mr-3" />,
-      exact: true
+      icon: <LayoutDashboard className="w-5 mr-3" />
     },
     {
       href: "/admin/games",

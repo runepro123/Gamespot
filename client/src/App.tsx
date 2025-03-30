@@ -27,7 +27,14 @@ function Router() {
       <ProtectedRoute path="/profile" component={ProfilePage} />
       <Route path="/about" component={AboutPage} />
       <Route path="/contact" component={ContactPage} />
+      {/* Admin routes */}
       <ProtectedRoute path="/admin" component={AdminPage} requireAdmin={true} />
+      <ProtectedRoute path="/admin/games" component={AdminPage} requireAdmin={true} />
+      <ProtectedRoute path="/admin/users" component={AdminPage} requireAdmin={true} />
+      <ProtectedRoute path="/admin/reviews" component={AdminPage} requireAdmin={true} />
+      <ProtectedRoute path="/admin/analytics" component={AdminPage} requireAdmin={true} />
+      <ProtectedRoute path="/admin/settings" component={AdminPage} requireAdmin={true} />
+      <ProtectedRoute path="/admin/logs" component={AdminPage} requireAdmin={true} />
       <Route component={NotFound} />
     </Switch>
   );
