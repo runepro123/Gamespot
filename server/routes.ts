@@ -216,6 +216,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Error fetching pending reviews" });
     }
   });
+  
+  // Get all reviews (for admin)
+  app.get("/api/reviews/all", isAdmin, async (req, res) => {
+    try {
+      // Get all users to include in review data
+      const users = await storage.getAllUsers();
+      
+      // Get all games to include in review data
+      const games = await storage.getAllGames();
+      
+      // Get approved reviews for each game
+      const allReviews = [];
+      
+      for (const game of games) {
+        const gameReviews = await storage.getReviewsByGame(game.id);
+        
+        // Add game and user data to each review
+        for (const review of gameReviews) {
+          const user = users.find(u => u.id === review.userId);
+          allReviews.push({
+            ...review,
+            game,
+            user: user ? { 
+              id: user.id, 
+              username: user.username,
+              fullName: user.fullName
+            } : undefined
+          });
+        }
+      }
+      
+      // Also include pending reviews
+      const pendingReviews = await storage.getPendingReviews();
+      
+      for (const review of pendingReviews) {
+        const game = games.find(g => g.id === review.gameId);
+        const user = users.find(u => u.id === review.userId);
+        
+        // Only add if not already included (avoid duplicates)
+        if (!allReviews.some(r => r.id === review.id)) {
+          allReviews.push({
+            ...review,
+            game,
+            user: user ? { 
+              id: user.id, 
+              username: user.username,
+              fullName: user.fullName
+            } : undefined
+          });
+        }
+      }
+      
+      res.json(allReviews);
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching all reviews" });
+    }
+  });
 
   app.patch("/api/reviews/:id", isAdmin, async (req, res) => {
     try {

@@ -8,6 +8,10 @@ import ChartsSection from "@/components/admin/charts-section";
 import ActivitiesSection from "@/components/admin/activities-section";
 import ReviewsSection from "@/components/admin/reviews-section";
 import GamesSection from "@/components/admin/games-section";
+import GamesManagement from "@/components/admin/games-management";
+import UsersManagement from "@/components/admin/users-management";
+import ReviewsManagement from "@/components/admin/reviews-management";
+import SettingsSection from "@/components/admin/settings-section";
 import { Plus } from "lucide-react";
 
 export default function AdminPage() {
@@ -111,19 +115,10 @@ function DashboardView() {
 function GamesView() {
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Games Management</h1>
-        <Button className="flex items-center">
-          <Plus className="h-4 w-4 mr-2" />
-          Add Game
-        </Button>
-      </div>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Games Management</h1>
       
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
-        <p className="text-center text-gray-500 dark:text-gray-400 py-20">
-          Full games management interface would go here
-        </p>
-      </div>
+      {/* Use the fully functional games management component */}
+      <GamesManagement />
     </div>
   );
 }
@@ -133,11 +128,8 @@ function UsersView() {
     <div>
       <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">User Management</h1>
       
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
-        <p className="text-center text-gray-500 dark:text-gray-400 py-20">
-          User management interface would go here
-        </p>
-      </div>
+      {/* Use the fully functional users management component */}
+      <UsersManagement />
     </div>
   );
 }
@@ -147,7 +139,8 @@ function ReviewsView() {
     <div>
       <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Reviews Management</h1>
       
-      <ReviewsSection />
+      {/* Use the fully functional reviews management component */}
+      <ReviewsManagement />
     </div>
   );
 }
@@ -167,11 +160,8 @@ function SettingsView() {
     <div>
       <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Site Settings</h1>
       
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
-        <p className="text-center text-gray-500 dark:text-gray-400 py-20">
-          Site settings interface would go here
-        </p>
-      </div>
+      {/* Use the fully functional settings section component */}
+      <SettingsSection />
     </div>
   );
 }
