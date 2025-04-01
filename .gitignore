@@ -1,7 +1,41 @@
+# Dependencies
 node_modules
-dist
+/.pnp
+.pnp.js
+
+# Build outputs
+/dist
+/build
+/server/public
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor directories and files
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
 .DS_Store
-server/public
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Vite
 vite.config.ts.*
+
+# Deployment
 *.tar.gz
 .vercel
+.netlify

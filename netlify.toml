@@ -1,0 +1,26 @@
+[build]
+  # Directory to change to before starting a build
+  base = "/"
+  
+  # Build command
+  command = "npm run build"
+  
+  # Directory with the static assets for serving
+  publish = "dist"
+
+[build.environment]
+  # Set the version of Node.js
+  NODE_VERSION = "18"
+
+# Redirect API calls to the backend
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+  force = true
+
+# Redirect all routes to index.html for client-side routing
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
