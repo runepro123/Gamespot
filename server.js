@@ -1,18 +1,14 @@
-// server.js - Entry point for Render.com web service
-import express from 'express';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import session from 'express-session';
-import cors from 'cors';
-import { createServer } from 'http';
-import connectPgSimple from 'connect-pg-simple';
-import { Pool } from 'pg';
-import passport from 'passport';
-import { Strategy as LocalStrategy } from 'passport-local';
-import crypto from 'crypto';
-
-// For ES Module support
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// server.js - Entry point for Render.com web service (API-only version)
+const express = require('express');
+const path = require('path');
+const session = require('express-session');
+const cors = require('cors');
+const { createServer } = require('http');
+const connectPgSimple = require('connect-pg-simple');
+const { Pool } = require('pg');
+const passport = require('passport');
+const { Strategy: LocalStrategy } = require('passport-local');
+const crypto = require('crypto');
 
 // Initialize Express app
 const app = express();
@@ -20,9 +16,10 @@ const app = express();
 // Middleware
 app.use(express.json());
 app.use(cors({
+  // Allow all origins in development, specific origin in production
   origin: process.env.NODE_ENV === 'production' 
-    ? process.env.SITE_URL || true
-    : 'http://localhost:5000',
+    ? process.env.FRONTEND_URL || true  // Change to your frontend URL in production
+    : true,
   credentials: true
 }));
 
@@ -99,11 +96,9 @@ async function verifyPassword(password, hash) {
   }
 }
 
-// Serve static assets from dist directory
-app.use(express.static(path.join(__dirname, 'dist')));
-app.use(express.static(path.join(__dirname, 'dist/public')));
+// AUTHENTICATION ENDPOINTS
+// ======================
 
-// Authentication routes
 app.post('/api/register', async (req, res) => {
   try {
     const { username, password, email, fullName } = req.body;
@@ -187,10 +182,9 @@ app.get('/api/user', (req, res) => {
   res.json(userResponse);
 });
 
-// Your other API routes would go here
-// ...
+// GAME ENDPOINTS
+// =============
 
-// API routes for games
 app.get('/api/games', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM games');
@@ -201,23 +195,137 @@ app.get('/api/games', async (req, res) => {
   }
 });
 
-// Default route - serve the React app
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'dist/public/index.html'));
+app.get('/api/games/:id', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const result = await pool.query('SELECT * FROM games WHERE id = $1', [id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Game not found' });
+    }
+    
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error fetching game:', error);
+    res.status(500).json({ message: 'Error fetching game' });
+  }
+});
+
+app.get('/api/games/trending', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM games ORDER BY rating DESC LIMIT 10');
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching trending games:', error);
+    res.status(500).json({ message: 'Error fetching trending games' });
+  }
+});
+
+app.get('/api/games/featured', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM games WHERE "isFeatured" = true');
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching featured games:', error);
+    res.status(500).json({ message: 'Error fetching featured games' });
+  }
+});
+
+app.get('/api/games/genre/:genre', async (req, res) => {
+  try {
+    const { genre } = req.params;
+    const result = await pool.query('SELECT * FROM games WHERE genre = $1', [genre]);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching games by genre:', error);
+    res.status(500).json({ message: 'Error fetching games by genre' });
+  }
+});
+
+// REVIEW ENDPOINTS
+// ==============
+
+app.get('/api/games/:id/reviews', async (req, res) => {
+  try {
+    const gameId = parseInt(req.params.id);
+    const result = await pool.query('SELECT * FROM reviews WHERE "gameId" = $1 AND "isApproved" = true', [gameId]);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching reviews:', error);
+    res.status(500).json({ message: 'Error fetching reviews' });
+  }
+});
+
+app.post('/api/reviews', async (req, res) => {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ message: 'You must be logged in to post a review' });
+  }
+  
+  try {
+    const { gameId, rating, content } = req.body;
+    const userId = req.user.id;
+    
+    // Validate inputs
+    if (!gameId || !rating || !content) {
+      return res.status(400).json({ message: 'GameId, rating, and content are required' });
+    }
+    
+    // Check if game exists
+    const gameCheck = await pool.query('SELECT * FROM games WHERE id = $1', [gameId]);
+    if (gameCheck.rows.length === 0) {
+      return res.status(404).json({ message: 'Game not found' });
+    }
+    
+    // Create review
+    const result = await pool.query(
+      'INSERT INTO reviews ("userId", "gameId", rating, content, "createdAt", "isApproved") VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+      [userId, gameId, rating, content, new Date(), false]
+    );
+    
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Error creating review:', error);
+    res.status(500).json({ message: 'Error creating review' });
+  }
+});
+
+// Add additional API endpoints as needed for your game database server
+// ...
+
+// HEALTH CHECK ENDPOINTS
+// ===================
+
+app.get('/', (req, res) => {
+  res.status(200).send('TopBestGames API Server is running');
+});
+
+app.get('/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'ok', 
+    message: 'API Server is running',
+    environment: process.env.NODE_ENV || 'development',
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Error handler
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).json({ message: 'Something went wrong!', error: err.message });
+  res.status(500).json({ 
+    message: 'Internal Server Error', 
+    error: process.env.NODE_ENV === 'production' ? undefined : err.message 
+  });
 });
 
 // Start the server
 const PORT = process.env.PORT || 3000;
 const server = createServer(app);
 
+// Explicitly bind to all network interfaces (0.0.0.0) for Render.com compatibility
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server listening on port ${PORT}`);
+  console.log(`API Server listening on port ${PORT}`);
+  console.log(`Server is bound to all network interfaces (0.0.0.0)`);
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 });
 
 // Setup passport for authentication

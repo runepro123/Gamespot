@@ -56,15 +56,16 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on port 5000
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = 5000;
+  // Use PORT from environment variable with fallback to 5000
+  // This serves both the API and the client.
+  // Explicitly bind to all network interfaces (0.0.0.0) for Render.com compatibility
+  const port = process.env.PORT ? parseInt(process.env.PORT) : 5000;
   server.listen({
     port,
-    host: "0.0.0.0",
+    host: "0.0.0.0", // Bind to all network interfaces for Render deployment
     reusePort: true,
   }, () => {
-    log(`serving on port ${port}`);
+    log(`Server listening on port ${port}`);
+    log(`Server is bound to all network interfaces (0.0.0.0)`);
   });
 })();

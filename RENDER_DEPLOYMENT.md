@@ -1,6 +1,6 @@
-# Deploying TopBestGames to Render.com
+# Deploying TopBestGames API Server to Render.com
 
-This guide will help you deploy the TopBestGames application to Render.com.
+This guide will help you deploy the TopBestGames API server to Render.com. This is for server-only deployment without the frontend client.
 
 ## Prerequisites
 
@@ -16,14 +16,15 @@ This guide will help you deploy the TopBestGames application to Render.com.
 2. Click on the **New +** button and select **Web Service**
 3. Connect your repository
 4. Configure the service with the following settings:
-   - **Name**: topbestgames (or your preferred name)
+   - **Name**: topbestgames-api (or your preferred name)
    - **Environment**: Node
-   - **Build Command**: `npm install --production && npm run build`
+   - **Build Command**: `npm install`
    - **Start Command**: `node server.js`
    - Set these environment variables:
      - `NODE_ENV`: production
      - `DATABASE_URL`: (Your PostgreSQL connection string)
      - `SESSION_SECRET`: (A random secure string)
+     - `FRONTEND_URL`: (The URL where your frontend will be deployed)
 5. Click **Create Web Service**
 
 ### Option 2: Using Blueprint (Recommended)
@@ -58,14 +59,14 @@ The following files are critical for Render deployment:
 
 If you're using the provided `render.yaml`, the database will be created automatically.
 
-## Preparing Files for Deployment
+## Preparing Files for Server-Only Deployment
 
-Before pushing to your Git repository for deployment, follow these steps:
+Since you're deploying only the server-side API:
 
-1. Make sure you've built the application:
-   ```
-   npm run build
-   ```
+1. Make sure you have these key files in your repository:
+   - `server.js` - Main API server file 
+   - `render.yaml` - Configuration for Render
+   - `render-package.json` - Required dependencies
 
 2. If deploying manually (not using Blueprint), rename `render-package.json` to `package.json`:
    ```
@@ -75,34 +76,83 @@ Before pushing to your Git repository for deployment, follow these steps:
 3. Push all files to your Git repository:
    ```
    git add .
-   git commit -m "Prepare for Render deployment"
+   git commit -m "Prepare for API server deployment"
    git push
    ```
 
+> **Note:** No build step is required for the server-only deployment since there's no frontend code to compile.
+
 ## Troubleshooting
 
-If you encounter the "Port scan timeout" error:
+### Fixing "Port scan timeout" Error
 
-1. Make sure `server.js` is in the root directory
-2. Ensure the server is properly binding to the port using:
+If you encounter the "Port scan timeout reached, no open ports detected" error:
+
+1. **Ensure server.js is properly configured**:
+   - Make sure `server.js` is in the root directory
+   - Verify the server is explicitly binding to all network interfaces:
    ```javascript
    server.listen(PORT, '0.0.0.0', () => {
      console.log(`Server listening on port ${PORT}`);
    });
    ```
-3. Verify that the `start` command in Render is correctly set to `node server.js`
-4. Check the logs in the Render dashboard for any specific errors
+   - Add a health check endpoint at the `/health` path:
+   ```javascript
+   app.get('/health', (req, res) => {
+     res.status(200).json({ status: 'ok', message: 'Server is running' });
+   });
+   
+   // And make sure the root path also returns a response
+   app.get('/', (req, res) => {
+     res.status(200).send('OK');
+   });
+   ```
+
+2. **Update render.yaml configuration**:
+   - Set a specific health check path: `healthCheckPath: /health`
+   - Set an appropriate timeout: `healthCheckTimeout: 10000`
+   - Mark the service as public: `public: true`
+
+3. **Check environment variables**:
+   - Ensure `PORT` is set (Render provides this automatically)
+   - Make sure your app uses this environment variable with fallback: `const PORT = process.env.PORT || 3000;`
+
+4. **Review build process**:
+   - Verify that the `start` command in Render is correctly set to `node server.js`
+   - Ensure build steps complete successfully
+   
+5. **Check deployment logs**:
+   - Review logs in the Render dashboard for specific errors
+   - Look for any error messages related to port binding
 
 ## Post-Deployment
 
 After successful deployment:
 
-1. The web service will be available at `https://your-service-name.onrender.com`
-2. The first deployment may take several minutes to build and start
+1. The API server will be available at `https://topbestgames-api.onrender.com` (or your chosen name)
+2. Test your API endpoints using a tool like Postman or curl commands:
+   ```bash
+   # Test the health endpoint
+   curl https://topbestgames-api.onrender.com/health
+   
+   # Test the games endpoint
+   curl https://topbestgames-api.onrender.com/api/games
+   ```
 3. Check the Render logs for any issues or errors
+
+## Connecting a Frontend to Your API
+
+To connect a frontend application to your deployed API:
+
+1. Deploy your frontend separately (to Netlify, Vercel, or another hosting service)
+2. Update the `FRONTEND_URL` environment variable in your Render service to match your frontend URL
+3. Configure your frontend to make API requests to your Render API URL
+4. Use CORS properly to allow requests from your frontend domain
 
 ## Important Notes
 
-- Render's free tier may have sleep time after periods of inactivity
+- Render's free tier has sleep time after periods of inactivity
+- The first request after inactivity may be slow as the service wakes up
 - Make sure your `DATABASE_URL` environment variable is correctly set
-- For persistent file storage, use Render's disk service or a third-party storage solution
+- Consider implementing proper authentication security for production use
+- See API_DOCUMENTATION.md for a complete list of available endpoints

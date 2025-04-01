@@ -10,6 +10,16 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 
+// Define authenticated user type
+interface AuthRequest extends Request {
+  user: {
+    id: number;
+    username: string;
+    isAdmin: boolean;
+    [key: string]: any;
+  };
+}
+
 // Authorization middleware
 function isAuthenticated(req: Request, res: Response, next: Function) {
   if (req.isAuthenticated()) {
@@ -20,7 +30,7 @@ function isAuthenticated(req: Request, res: Response, next: Function) {
 
 // Admin authorization middleware
 function isAdmin(req: Request, res: Response, next: Function) {
-  if (req.isAuthenticated() && req.user.isAdmin) {
+  if (req.isAuthenticated() && (req as AuthRequest).user.isAdmin) {
     return next();
   }
   res.status(403).json({ message: "Forbidden: Admin access required" });
@@ -32,6 +42,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   if (storage instanceof DatabaseStorage) {
     await storage.seedInitialData();
   }
+  
+  // Health check endpoints for Render deployment
+  app.get("/health", (req, res) => {
+    res.status(200).json({ 
+      status: "ok", 
+      message: "Server is running",
+      environment: process.env.NODE_ENV || "development",
+      timestamp: new Date().toISOString()
+    });
+  });
+  
+  app.get("/", (req, res, next) => {
+    // For health checks, respond with OK
+    if (req.method === "GET" && req.path === "/") {
+      return res.status(200).send("TopBestGames API Server is running");
+    }
+    next();
+  });
   
   // Setup authentication
   setupAuth(app);
@@ -99,7 +127,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/games", isAdmin, async (req, res) => {
+  app.post("/api/games", isAdmin, async (req: AuthRequest, res) => {
     try {
       const gameData = insertGameSchema.parse(req.body);
       const game = await storage.createGame(gameData);
