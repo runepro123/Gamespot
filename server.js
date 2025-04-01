@@ -1,38 +1,35 @@
-const fs = require('fs');
-const path = require('path');
+// server.js - Entry point for Render.com web service
+import express from 'express';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import session from 'express-session';
+import cors from 'cors';
+import { createServer } from 'http';
+import connectPgSimple from 'connect-pg-simple';
+import { Pool } from 'pg';
+import passport from 'passport';
+import { Strategy as LocalStrategy } from 'passport-local';
+import crypto from 'crypto';
 
-// Create the Netlify functions directory if it doesn't exist
-const functionDir = './netlify/functions';
-if (!fs.existsSync(functionDir)) {
-  fs.mkdirSync(functionDir, { recursive: true });
-}
+// For ES Module support
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Copy API function to netlify/functions
-const apiFunctionPath = path.join(functionDir, 'api.js');
-fs.writeFileSync(apiFunctionPath, `
-const express = require('express');
-const serverless = require('serverless-http');
-const cors = require('cors');
-const session = require('express-session');
-const passport = require('passport');
-const { Strategy: LocalStrategy } = require('passport-local');
-const { Pool } = require('pg');
-const crypto = require('crypto');
-const connectPgSimple = require('connect-pg-simple');
-
+// Initialize Express app
 const app = express();
 
 // Middleware
 app.use(express.json());
 app.use(cors({
-  origin: process.env.SITE_URL || true,
+  origin: process.env.NODE_ENV === 'production' 
+    ? process.env.SITE_URL || true
+    : 'http://localhost:5000',
   credentials: true
 }));
 
 // Database connection
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
 // Session configuration
@@ -45,16 +42,17 @@ const sessionStore = new PgSession({
 
 app.use(session({
   store: sessionStore,
-  secret: process.env.SESSION_SECRET || 'topbestgames-secret-key-' + Math.random().toString(36).substring(2),
+  secret: process.env.SESSION_SECRET || 'topbestgames-secret-key-' + Math.random().toString(36).substring(2, 15),
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: true,
+    secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
     maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
   }
 }));
 
+// Passport authentication setup
 app.use(passport.initialize());
 app.use(passport.session());
 
@@ -64,21 +62,35 @@ async function hashPassword(password) {
   return new Promise((resolve, reject) => {
     crypto.scrypt(password, salt, 64, (err, derivedKey) => {
       if (err) reject(err);
-      resolve(\`\${derivedKey.toString('hex')}.\${salt}\`);
+      resolve(`${derivedKey.toString('hex')}.${salt}`);
     });
   });
 }
 
 async function verifyPassword(password, hash) {
   try {
+    // Check if stored password is in the expected format
+    if (!hash || !hash.includes('.')) {
+      return false;
+    }
+    
     const [hashedPassword, salt] = hash.split('.');
+    if (!hashedPassword || !salt) {
+      return false;
+    }
+    
     return new Promise((resolve, reject) => {
       crypto.scrypt(password, salt, 64, (err, derivedKey) => {
         if (err) reject(err);
-        resolve(crypto.timingSafeEqual(
-          Buffer.from(hashedPassword, 'hex'),
-          derivedKey
-        ));
+        try {
+          resolve(crypto.timingSafeEqual(
+            Buffer.from(hashedPassword, 'hex'),
+            derivedKey
+          ));
+        } catch (error) {
+          console.error('Error during password comparison:', error);
+          resolve(false);
+        }
       });
     });
   } catch (error) {
@@ -87,40 +99,11 @@ async function verifyPassword(password, hash) {
   }
 }
 
-passport.use(new LocalStrategy(async (username, password, done) => {
-  try {
-    const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
-    const user = result.rows[0];
-    
-    if (!user) {
-      return done(null, false, { message: 'Incorrect username.' });
-    }
-    
-    const isValid = await verifyPassword(password, user.password);
-    if (!isValid) {
-      return done(null, false, { message: 'Incorrect password.' });
-    }
-    
-    return done(null, user);
-  } catch (error) {
-    return done(error);
-  }
-}));
+// Serve static assets from dist directory
+app.use(express.static(path.join(__dirname, 'dist')));
+app.use(express.static(path.join(__dirname, 'dist/public')));
 
-passport.serializeUser((user, done) => {
-  done(null, user.id);
-});
-
-passport.deserializeUser(async (id, done) => {
-  try {
-    const result = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
-    done(null, result.rows[0] || null);
-  } catch (error) {
-    done(error);
-  }
-});
-
-// Auth routes
+// Authentication routes
 app.post('/api/register', async (req, res) => {
   try {
     const { username, password, email, fullName } = req.body;
@@ -163,7 +146,7 @@ app.post('/api/register', async (req, res) => {
 });
 
 app.post('/api/login', (req, res, next) => {
-  passport.authenticate('local', (err, user, info) => {
+  passport.authenticate('local', async (err, user, info) => {
     if (err) {
       return next(err);
     }
@@ -204,7 +187,10 @@ app.get('/api/user', (req, res) => {
   res.json(userResponse);
 });
 
-// Game routes
+// Your other API routes would go here
+// ...
+
+// API routes for games
 app.get('/api/games', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM games');
@@ -215,26 +201,55 @@ app.get('/api/games', async (req, res) => {
   }
 });
 
-// Add more routes here...
-
-// Export the serverless function
-exports.handler = serverless(app, {
-  basePath: '/.netlify/functions/api'
+// Default route - serve the React app
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'dist/public/index.html'));
 });
-`);
 
-console.log('API function copied to netlify/functions/api.js');
+// Error handler
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ message: 'Something went wrong!', error: err.message });
+});
 
-// Create Netlify redirects file if it doesn't exist
-const redirectsPath = './public/_redirects';
-if (!fs.existsSync('./public')) {
-  fs.mkdirSync('./public', { recursive: true });
-}
+// Start the server
+const PORT = process.env.PORT || 3000;
+const server = createServer(app);
 
-fs.writeFileSync(redirectsPath, `
-# Netlify redirects
-/api/*  /.netlify/functions/api/:splat  200
-/*      /index.html                     200
-`);
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server listening on port ${PORT}`);
+});
 
-console.log('Created _redirects file in public directory');
+// Setup passport for authentication
+passport.use(new LocalStrategy(async (username, password, done) => {
+  try {
+    const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+    const user = result.rows[0];
+    
+    if (!user) {
+      return done(null, false, { message: 'Incorrect username.' });
+    }
+    
+    const isValid = await verifyPassword(password, user.password);
+    if (!isValid) {
+      return done(null, false, { message: 'Incorrect password.' });
+    }
+    
+    return done(null, user);
+  } catch (error) {
+    return done(error);
+  }
+}));
+
+passport.serializeUser((user, done) => {
+  done(null, user.id);
+});
+
+passport.deserializeUser(async (id, done) => {
+  try {
+    const result = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
+    done(null, result.rows[0] || null);
+  } catch (error) {
+    done(error);
+  }
+});

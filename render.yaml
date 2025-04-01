@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: topbestgames
+    env: node
+    buildCommand: npm install --production && npm run build && cp -R dist dist_render || true
+    startCommand: node server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: topbestgames-db
+          property: connectionString
+      - key: SESSION_SECRET
+        generateValue: true
+
+databases:
+  - name: topbestgames-db
+    databaseName: topbestgames
+    user: topbestgames_user

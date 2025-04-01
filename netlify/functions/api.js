@@ -1,34 +1,26 @@
-// Netlify serverless function for API
-import serverless from 'serverless-http';
-import express from 'express';
-import session from 'express-session';
-import connectPgSimple from 'connect-pg-simple';
-import { Pool } from 'pg';
-import dotenv from 'dotenv';
-import cors from 'cors';
-import passport from 'passport';
-import { Strategy as LocalStrategy } from 'passport-local';
-import crypto from 'crypto';
+const express = require('express');
+const serverless = require('serverless-http');
+const cors = require('cors');
+const session = require('express-session');
+const passport = require('passport');
+const { Strategy: LocalStrategy } = require('passport-local');
+const { Pool } = require('pg');
+const crypto = require('crypto');
+const connectPgSimple = require('connect-pg-simple');
 
-// Load environment variables
-dotenv.config();
-
-// Initialize Express app
 const app = express();
 
 // Middleware
 app.use(express.json());
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? [process.env.SITE_URL || 'https://your-netlify-app.netlify.app'] 
-    : 'http://localhost:5000',
+  origin: process.env.SITE_URL || true,
   credentials: true
 }));
 
 // Database connection
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+  ssl: { rejectUnauthorized: false }
 });
 
 // Session configuration
@@ -41,17 +33,16 @@ const sessionStore = new PgSession({
 
 app.use(session({
   store: sessionStore,
-  secret: process.env.SESSION_SECRET || 'your-default-secret-key',
+  secret: process.env.SESSION_SECRET || 'topbestgames-secret-key-' + Math.random().toString(36).substring(2),
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: process.env.NODE_ENV === 'production',
+    secure: true,
     httpOnly: true,
     maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
   }
 }));
 
-// Passport authentication setup
 app.use(passport.initialize());
 app.use(passport.session());
 
@@ -67,19 +58,23 @@ async function hashPassword(password) {
 }
 
 async function verifyPassword(password, hash) {
-  const [hashedPassword, salt] = hash.split('.');
-  return new Promise((resolve, reject) => {
-    crypto.scrypt(password, salt, 64, (err, derivedKey) => {
-      if (err) reject(err);
-      resolve(crypto.timingSafeEqual(
-        Buffer.from(hashedPassword, 'hex'),
-        derivedKey
-      ));
+  try {
+    const [hashedPassword, salt] = hash.split('.');
+    return new Promise((resolve, reject) => {
+      crypto.scrypt(password, salt, 64, (err, derivedKey) => {
+        if (err) reject(err);
+        resolve(crypto.timingSafeEqual(
+          Buffer.from(hashedPassword, 'hex'),
+          derivedKey
+        ));
+      });
     });
-  });
+  } catch (error) {
+    console.error('Error verifying password:', error);
+    return false;
+  }
 }
 
-// Passport local strategy
 passport.use(new LocalStrategy(async (username, password, done) => {
   try {
     const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
@@ -113,7 +108,7 @@ passport.deserializeUser(async (id, done) => {
   }
 });
 
-// Authentication routes
+// Auth routes
 app.post('/api/register', async (req, res) => {
   try {
     const { username, password, email, fullName } = req.body;
@@ -135,8 +130,8 @@ app.post('/api/register', async (req, res) => {
     
     // Insert new user
     const result = await pool.query(
-      'INSERT INTO users (username, password, email, "fullName", role, "createdAt", "isActive") VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
-      [username, hashedPassword, email, fullName, 'user', new Date(), true]
+      'INSERT INTO users (username, password, email, "fullName", "isAdmin", avatar, "createdAt", "isActive") VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
+      [username, hashedPassword, email, fullName || username, false, '', new Date(), true]
     );
     
     const newUser = result.rows[0];
@@ -161,7 +156,7 @@ app.post('/api/login', (req, res, next) => {
       return next(err);
     }
     if (!user) {
-      return res.status(401).json({ message: info.message || 'Authentication failed' });
+      return res.status(401).json({ message: info?.message || 'Authentication failed' });
     }
     req.login(user, err => {
       if (err) {
@@ -197,16 +192,26 @@ app.get('/api/user', (req, res) => {
   res.json(userResponse);
 });
 
-// Your other API routes would go here
-// ...
-
-// Error handler
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ message: 'Something went wrong!', error: err.message });
+// Game routes
+app.get('/api/games', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM games');
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching games:', error);
+    res.status(500).json({ message: 'Error fetching games' });
+  }
 });
 
-// Export the serverless handler
-export const handler = serverless(app, {
-  binary: ['application/octet-stream', 'application/pdf', 'image/*']
+// Add more routes here as per the implementation in server/routes.ts
+// ...
+
+// API health check
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', message: 'API is running' });
+});
+
+// Export the serverless function
+exports.handler = serverless(app, {
+  basePath: '/.netlify/functions/api'
 });
