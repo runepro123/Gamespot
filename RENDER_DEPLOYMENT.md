@@ -64,14 +64,16 @@ If you're using the provided `render.yaml`, the database will be created automat
 Since you're deploying only the server-side API:
 
 1. Make sure you have these key files in your repository:
-   - `server.js` - Main API server file 
+   - `server.js` - Main API server file (using ES module syntax)
    - `render.yaml` - Configuration for Render
-   - `render-package.json` - Required dependencies
+   - `render-package.json` - Required dependencies (with ES module configuration)
 
 2. If deploying manually (not using Blueprint), rename `render-package.json` to `package.json`:
    ```
    cp render-package.json package.json
    ```
+   
+   Important: The package.json contains `"type": "module"` which configures Node.js to treat .js files as ES modules. This requires using ES module import/export syntax instead of CommonJS require().
 
 3. Push all files to your Git repository:
    ```
@@ -106,6 +108,16 @@ If you encounter the "Port scan timeout reached, no open ports detected" error:
    app.get('/', (req, res) => {
      res.status(200).send('OK');
    });
+   ```
+   - If using ES modules (recommended), ensure your package.json has `"type": "module"` and your imports use ES module syntax:
+   ```javascript
+   // ES module imports (correct)
+   import express from 'express';
+   import { createServer } from 'http';
+
+   // Instead of CommonJS imports (incorrect for ES modules)
+   // const express = require('express');
+   // const { createServer } = require('http');
    ```
 
 2. **Update render.yaml configuration**:

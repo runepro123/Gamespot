@@ -2,6 +2,15 @@
 
 This document provides information about the API endpoints available in the TopBestGames server.
 
+## Server Information
+
+The API server is built using Node.js and Express, and is configured as an ES module. When deploying or running the server:
+
+- The server is built using ES module syntax (import/export) instead of CommonJS (require)
+- The package.json includes `"type": "module"` to ensure proper ES module support
+- The server binds to all network interfaces using `0.0.0.0` for cloud compatibility
+- Health check endpoints are available at `/` and `/health` paths
+
 ## Base URL
 
 When deployed on Render, your API will be available at:

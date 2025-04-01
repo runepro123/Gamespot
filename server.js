@@ -1,14 +1,20 @@
 // server.js - Entry point for Render.com web service (API-only version)
-const express = require('express');
-const path = require('path');
-const session = require('express-session');
-const cors = require('cors');
-const { createServer } = require('http');
-const connectPgSimple = require('connect-pg-simple');
-const { Pool } = require('pg');
-const passport = require('passport');
-const { Strategy: LocalStrategy } = require('passport-local');
-const crypto = require('crypto');
+import express from 'express';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import session from 'express-session';
+import cors from 'cors';
+import { createServer } from 'http';
+import connectPgSimple from 'connect-pg-simple';
+import pg from 'pg';
+const { Pool } = pg;
+import passport from 'passport';
+import { Strategy as LocalStrategy } from 'passport-local';
+import crypto from 'crypto';
+
+// For ES Module support
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Initialize Express app
 const app = express();
@@ -146,7 +152,7 @@ app.post('/api/login', (req, res, next) => {
       return next(err);
     }
     if (!user) {
-      return res.status(401).json({ message: info?.message || 'Authentication failed' });
+      return res.status(401).json({ message: info && info.message ? info.message : 'Authentication failed' });
     }
     req.login(user, err => {
       if (err) {
@@ -195,22 +201,7 @@ app.get('/api/games', async (req, res) => {
   }
 });
 
-app.get('/api/games/:id', async (req, res) => {
-  try {
-    const id = parseInt(req.params.id);
-    const result = await pool.query('SELECT * FROM games WHERE id = $1', [id]);
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'Game not found' });
-    }
-    
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error('Error fetching game:', error);
-    res.status(500).json({ message: 'Error fetching game' });
-  }
-});
-
+// Special routes must come before generic ones
 app.get('/api/games/trending', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM games ORDER BY rating DESC LIMIT 10');
@@ -239,6 +230,23 @@ app.get('/api/games/genre/:genre', async (req, res) => {
   } catch (error) {
     console.error('Error fetching games by genre:', error);
     res.status(500).json({ message: 'Error fetching games by genre' });
+  }
+});
+
+// Generic game by ID route comes after specific routes
+app.get('/api/games/:id', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const result = await pool.query('SELECT * FROM games WHERE id = $1', [id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Game not found' });
+    }
+    
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error fetching game:', error);
+    res.status(500).json({ message: 'Error fetching game' });
   }
 });
 
