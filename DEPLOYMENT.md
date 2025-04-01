@@ -21,6 +21,22 @@ SESSION_SECRET=[random-secret-string]
 
 ## Deploying to Netlify
 
+### Important: ES Modules Configuration
+
+This project uses ES modules (specified by `"type": "module"` in package.json), which requires special configuration for Netlify functions:
+
+1. Make sure the `netlify/functions/api.js` file uses ES modules syntax:
+   - Uses `import` instead of `require`
+   - Uses `export const handler` instead of `module.exports.handler`
+   - Specifies `.js` extension when importing from local files (e.g., `import { registerRoutes } from '../../server/routes.js'`)
+
+2. When building scripts require paths in Node.js ES modules, use:
+   ```javascript
+   import { fileURLToPath } from 'url';
+   const __filename = fileURLToPath(import.meta.url);
+   const __dirname = path.dirname(__filename);
+   ```
+
 ### Automatic Deployment from GitHub
 
 1. Push your code to a GitHub repository
@@ -85,6 +101,17 @@ If you encounter database connection problems:
 If authentication doesn't work:
 - Verify that the SESSION_SECRET environment variable is set
 - Check that the session configuration in server/auth.ts matches your deployment environment
+
+### Netlify Functions (API) Issues
+
+If you encounter issues with the Netlify functions (API endpoints not working):
+- Check the function logs in the Netlify dashboard under "Functions"
+- Ensure your functions are using ES Modules syntax correctly:
+  - Use `import` instead of `require`
+  - Use `export const handler` instead of `module.exports.handler`
+  - Add `.js` extension to local imports (e.g., `import { x } from './y.js'`)
+- If you see "Cannot use import statement outside a module", ensure the project has `"type": "module"` in package.json
+- If dependencies are not found, check that your build process is correctly bundling the required dependencies
 
 ### Styling or Asset Issues
 

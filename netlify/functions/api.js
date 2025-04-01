@@ -1,7 +1,8 @@
-const express = require('express');
-const serverless = require('serverless-http');
+import express from 'express';
+import serverless from 'serverless-http';
+import { registerRoutes } from '../../server/routes.js';
+
 const app = express();
-const { registerRoutes } = require('../../server/routes');
 
 // Enable JSON parsing
 app.use(express.json());
@@ -11,4 +12,4 @@ app.use(express.urlencoded({ extended: false }));
 registerRoutes(app);
 
 // Export the serverless function
-module.exports.handler = serverless(app);
+export const handler = serverless(app);
