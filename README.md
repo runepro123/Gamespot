@@ -1,75 +1,113 @@
 # TopBestGames - Gaming Platform
 
-A responsive gaming platform built with React, TypeScript, and PostgreSQL, showcasing the best games across various genres with a fully functional admin panel.
+A responsive web application that showcases the best games across various genres with a fully functional admin panel.
 
 ## Features
 
-- **User Authentication**: Secure login and registration with proper password hashing
-- **Game Catalog**: Browse games by genre, rating, or trending status
-- **Reviews System**: Read and submit reviews for games
-- **Favorites**: Save your favorite games to your profile
-- **Responsive Design**: Optimized for all devices from mobile to desktop
-- **Admin Panel**: Comprehensive management interface with:
-  - Statistics dashboard
-  - Game management
+- **Game Catalog**: Browse games by genre, popularity, and ratings
+- **User Accounts**: Register, login, and manage personal profiles
+- **Game Reviews**: Read and write reviews for games
+- **Favorite Games**: Save and track your favorite games
+- **Admin Panel**: Comprehensive management tools for administrators
+  - Dashboard with analytics
   - User management
+  - Content management
   - Review moderation
-  - Analytics with charts
-  - Activity logs
-  - Site settings
+  - System settings
 
-## Technology Stack
+## Tech Stack
 
-- **Frontend**: React, TypeScript, TailwindCSS, Shadcn UI
-- **Backend**: Node.js, Express
-- **Database**: PostgreSQL with Drizzle ORM
-- **Authentication**: Passport.js with session-based auth
-- **State Management**: TanStack Query (React Query)
-- **Routing**: Wouter
+- **Frontend**:
+  - React with TypeScript
+  - TanStack Query for data fetching
+  - Tailwind CSS for styling
+  - Shadcn UI components
+  - Wouter for client-side routing
+
+- **Backend**:
+  - Express.js API server
+  - PostgreSQL database
+  - Drizzle ORM for database interactions
+  - Passport.js for authentication
+  - Express-session for session management
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js 16+
+- Node.js (v18+)
 - PostgreSQL database
 
 ### Installation
 
-1. Clone the repository:
+1. Clone the repository
    ```
    git clone https://github.com/yourusername/topbestgames.git
    cd topbestgames
    ```
 
-2. Install dependencies:
+2. Install dependencies
    ```
    npm install
    ```
 
-3. Set up environment variables:
-   Create a `.env` file in the root directory with:
-   ```
-   DATABASE_URL=postgres://username:password@localhost:5432/topbestgames
-   SESSION_SECRET=your_session_secret
-   ```
+3. Set up environment variables
+   - Create a `.env` file in the root directory
+   - Add your database connection details:
+     ```
+     DATABASE_URL=postgresql://user:password@localhost:5432/topbestgames
+     SESSION_SECRET=your-random-secret-key
+     ```
 
-4. Initialize the database:
-   ```
-   npm run db:push
-   ```
-
-5. Start the development server:
+4. Start the development server
    ```
    npm run dev
    ```
 
-6. Access the application at `http://localhost:5000`
+5. Open [http://localhost:5000](http://localhost:5000) in your browser
+
+## Project Structure
+
+```
+.
+├── client/                # Frontend code
+│   ├── src/
+│   │   ├── components/    # Reusable UI components
+│   │   ├── hooks/         # Custom React hooks
+│   │   ├── lib/           # Utility functions and configs
+│   │   ├── pages/         # Page components
+│   │   └── App.tsx        # Main application component
+│
+├── server/                # Backend code
+│   ├── auth.ts            # Authentication setup
+│   ├── index.ts           # Express server setup
+│   ├── routes.ts          # API routes
+│   ├── storage.ts         # Database interface
+│   └── vite.ts            # Vite integration
+│
+├── shared/                # Shared code between frontend and backend
+│   └── schema.ts          # Database schema and types
+│
+├── netlify/               # Netlify deployment config
+├── public/                # Static assets
+└── scripts/               # Build and utility scripts
+```
+
+## Database Schema
+
+The application uses the following primary data models:
+
+- **Users**: User accounts and profile information
+- **Games**: Game details, ratings, and metadata
+- **Reviews**: User reviews for games
+- **Favorites**: User's favorite games
+- **Activity Logs**: System activity tracking
+- **Analytics**: Usage statistics
 
 ## Deployment
 
-This application can be deployed to any hosting service that supports Node.js and PostgreSQL.
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for instructions on deploying to Netlify.
 
 ## License
 
-MIT
+This project is licensed under the MIT License - see the LICENSE file for details.
