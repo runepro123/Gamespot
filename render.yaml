@@ -4,7 +4,7 @@ services:
     env: node
     region: oregon  # Choose the region closest to your users
     plan: free  # Use free plan
-    buildCommand: npm install
+    buildCommand: npm ci --omit=dev
     startCommand: node server.js
     # These environment variables will be set automatically for your service
     envVars:

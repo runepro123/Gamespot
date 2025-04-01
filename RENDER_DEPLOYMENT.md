@@ -86,7 +86,9 @@ Since you're deploying only the server-side API:
 
 ## Troubleshooting
 
-### Fixing "Port scan timeout" Error
+### Common Deployment Errors and Solutions
+
+#### Fixing "Port scan timeout" Error
 
 If you encounter the "Port scan timeout reached, no open ports detected" error:
 
@@ -136,6 +138,39 @@ If you encounter the "Port scan timeout reached, no open ports detected" error:
 5. **Check deployment logs**:
    - Review logs in the Render dashboard for specific errors
    - Look for any error messages related to port binding
+   
+#### Fixing "ERR_MODULE_NOT_FOUND" Error
+
+If you encounter errors like `Cannot find package 'cors' imported from /opt/render/project/src/server.js`:
+
+1. **Ensure dependencies are properly installed during build**:
+   - Use a more reliable build command in render.yaml:
+   ```yaml
+   buildCommand: npm ci --omit=dev
+   ```
+   - This uses npm's clean-install command which is more reliable than regular `npm install`
+
+2. **Verify package.json dependencies**:
+   - Make sure all imported packages in server.js are listed in the dependencies section of your package.json:
+   ```json
+   "dependencies": {
+     "connect-pg-simple": "^8.0.0",
+     "cors": "^2.8.5",
+     "express": "^4.18.2",
+     "express-session": "^1.17.3",
+     "passport": "^0.6.0",
+     "passport-local": "^1.0.0",
+     "pg": "^8.11.3"
+   }
+   ```
+   
+3. **Check that node version is appropriate**:
+   - Set a Node.js version that's compatible with all your dependencies:
+   ```json
+   "engines": {
+     "node": ">=16.0.0"
+   }
+   ```
 
 ## Post-Deployment
 
