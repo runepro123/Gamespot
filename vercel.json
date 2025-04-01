@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "name": "game-spotlight-api",
+  "builds": [
+    { "src": "server-vercel.js", "use": "@vercel/node" }
+  ],
+  "routes": [
+    { "src": "/(.*)", "dest": "/server-vercel.js" }
+  ],
+  "regions": ["cdg1"],
+  "env": {
+    "NODE_ENV": "production"
+  }
+}
