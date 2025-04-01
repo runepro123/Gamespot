@@ -43,8 +43,13 @@ async function comparePasswords(supplied: string, stored: string) {
 }
 
 export function setupAuth(app: Express) {
+  // In production, we should require a SESSION_SECRET
+  if (process.env.NODE_ENV === 'production' && !process.env.SESSION_SECRET) {
+    console.warn('WARNING: SESSION_SECRET is not set in production. Using a default value, but this is not secure.');
+  }
+  
   const sessionSettings: session.SessionOptions = {
-    secret: process.env.SESSION_SECRET || "topbestgames-secret-key",
+    secret: process.env.SESSION_SECRET || "topbestgames-secret-key-" + Math.random().toString(36).substring(2, 15),
     resave: false,
     saveUninitialized: false,
     rolling: true,
@@ -52,6 +57,8 @@ export function setupAuth(app: Express) {
     cookie: {
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
       httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax'
     }
   };
 

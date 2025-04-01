@@ -1,5 +1,5 @@
-// copy-netlify-files.js
-// This script copies necessary Netlify configuration files to the build output
+// scripts/copy-netlify-files.js
+// This script copies necessary files from public to dist/public for Netlify deployment
 
 import fs from 'fs';
 import path from 'path';
@@ -8,8 +8,8 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Paths
-const rootDir = path.join(__dirname, '..');
+// Define paths
+const rootDir = path.resolve(__dirname, '..');
 const publicDir = path.join(rootDir, 'public');
 const distDir = path.join(rootDir, 'dist');
 const distPublicDir = path.join(distDir, 'public');
@@ -19,63 +19,65 @@ if (!fs.existsSync(distPublicDir)) {
   fs.mkdirSync(distPublicDir, { recursive: true });
 }
 
-// Ensure netlify/functions directory exists
-const functionsDir = path.join(rootDir, 'netlify/functions');
-if (!fs.existsSync(functionsDir)) {
-  fs.mkdirSync(path.join(rootDir, 'netlify/functions'), { recursive: true });
-}
+// Copy _redirects file
+const redirectsPath = path.join(publicDir, '_redirects');
+const distRedirectsPath = path.join(distDir, '_redirects');
+const distPublicRedirectsPath = path.join(distPublicDir, '_redirects');
 
-// Copy _redirects file to both dist and dist/public directories
-console.log('Copying _redirects file...');
-const redirectsSource = path.join(publicDir, '_redirects');
-const redirectsDestDist = path.join(distDir, '_redirects');
-const redirectsDestPublic = path.join(distPublicDir, '_redirects');
-
-if (fs.existsSync(redirectsSource)) {
-  fs.copyFileSync(redirectsSource, redirectsDestDist);
-  fs.copyFileSync(redirectsSource, redirectsDestPublic);
-  console.log('_redirects files copied successfully.');
+if (fs.existsSync(redirectsPath)) {
+  console.log('Copying _redirects file to dist directory...');
+  fs.copyFileSync(redirectsPath, distRedirectsPath);
+  console.log('Copying _redirects file to dist/public directory...');
+  fs.copyFileSync(redirectsPath, distPublicRedirectsPath);
 } else {
-  console.error('_redirects file not found in public directory.');
-  // Create default _redirects file
-  const redirectsContent = '/*  /index.html  200';
-  fs.writeFileSync(redirectsDestDist, redirectsContent);
-  fs.writeFileSync(redirectsDestPublic, redirectsContent);
-  console.log('Default _redirects files created.');
+  console.log('Creating _redirects file...');
+  fs.writeFileSync(distRedirectsPath, '/*  /index.html  200');
+  fs.writeFileSync(distPublicRedirectsPath, '/*  /index.html  200');
 }
 
-// Copy all files from public to dist/public
-console.log('Copying all files from public directory to dist/public...');
-fs.readdirSync(publicDir).forEach(file => {
-  const sourcePath = path.join(publicDir, file);
-  const destPath = path.join(distPublicDir, file);
-  
-  if (fs.lstatSync(sourcePath).isDirectory()) {
-    // If it's a directory, create it and copy contents recursively
-    if (!fs.existsSync(destPath)) {
-      fs.mkdirSync(destPath, { recursive: true });
-    }
+// Copy public directory contents to dist/public
+console.log('Copying public directory contents to dist/public...');
+if (fs.existsSync(publicDir)) {
+  fs.readdirSync(publicDir).forEach(file => {
+    const sourcePath = path.join(publicDir, file);
+    const destPath = path.join(distPublicDir, file);
     
-    // Simple recursive copy for directories (not handling deep nested structures)
-    fs.readdirSync(sourcePath).forEach(nestedFile => {
-      const nestedSourcePath = path.join(sourcePath, nestedFile);
-      const nestedDestPath = path.join(destPath, nestedFile);
-      
-      if (!fs.lstatSync(nestedSourcePath).isDirectory()) {
-        fs.copyFileSync(nestedSourcePath, nestedDestPath);
+    if (fs.lstatSync(sourcePath).isDirectory()) {
+      // If it's a directory, create it in dist/public and copy its contents
+      if (!fs.existsSync(destPath)) {
+        fs.mkdirSync(destPath, { recursive: true });
       }
-    });
-  } else {
-    // If it's a file, copy it directly
-    fs.copyFileSync(sourcePath, destPath);
-  }
-});
+      
+      fs.readdirSync(sourcePath).forEach(nestedFile => {
+        const nestedSourcePath = path.join(sourcePath, nestedFile);
+        const nestedDestPath = path.join(destPath, nestedFile);
+        
+        if (!fs.lstatSync(nestedSourcePath).isDirectory()) {
+          try {
+            fs.copyFileSync(nestedSourcePath, nestedDestPath);
+          } catch (error) {
+            console.error(`Error copying ${nestedSourcePath}:`, error);
+          }
+        }
+      });
+    } else {
+      // If it's a file and not the _redirects file (already copied), copy it
+      if (file !== '_redirects') {
+        try {
+          fs.copyFileSync(sourcePath, destPath);
+        } catch (error) {
+          console.error(`Error copying ${sourcePath}:`, error);
+        }
+      }
+    }
+  });
+}
 
-// Create index.html in dist/public if it doesn't exist
+// Create fallback index.html if it doesn't exist
 const indexHtmlPath = path.join(distPublicDir, 'index.html');
 if (!fs.existsSync(indexHtmlPath)) {
-  console.log('Creating default index.html in dist/public...');
-  const defaultIndexHtml = `<!DOCTYPE html>
+  console.log('Creating fallback index.html in dist/public...');
+  const indexHtmlContent = `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -125,7 +127,7 @@ if (!fs.existsSync(indexHtmlPath)) {
     </script>
 </body>
 </html>`;
-  fs.writeFileSync(indexHtmlPath, defaultIndexHtml);
+  fs.writeFileSync(indexHtmlPath, indexHtmlContent);
 }
 
-console.log('Files copy completed successfully.');
+console.log('File copying completed successfully!');
