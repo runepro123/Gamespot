@@ -1,7 +1,1 @@
-# Netlify redirects file
-
-# API requests go to the serverless function
-/api/*  /.netlify/functions/api/:splat  200
-
-# All other routes should be handled by the SPA
 /*  /index.html  200
